@@ -44,15 +44,20 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
-    // Jouw Firebase config (vervang dit!)
     const firebaseConfig = {
-      apiKey: "JOUW_API_KEY",
-      authDomain: "JOUW_PROJECT_ID.firebaseapp.com",
-      databaseURL: "https://JOUW_PROJECT_ID.firebaseio.com",
-      projectId: "JOUW_PROJECT_ID",
-      storageBucket: "JOUW_PROJECT_ID.appspot.com",
-      messagingSenderId: "XXXXXXXXXXXX",
-      appId: "JOUW_APP_ID"
+  apiKey: "AIzaSyBRYtyAzzzPfJgzcmWKF5XNYvmVD6p-6v0",
+  authDomain: "lvc-meldkamer.firebaseapp.com",
+  databaseURL: "https://lvc-meldkamer-default-rtdb.firebaseio.com",
+  projectId: "lvc-meldkamer",
+  storageBucket: "lvc-meldkamer.firebasestorage.app",
+  messagingSenderId: "701671349145",
+  appId: "1:701671349145:web:ec9fda66dd686585a81108",
+  measurementId: "G-7YW1ZHSJEK"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
     };
 
     const app = initializeApp(firebaseConfig);
