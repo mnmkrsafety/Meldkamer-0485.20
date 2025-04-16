@@ -28,16 +28,57 @@
       border-radius: 20px;
       display: inline-block;
       margin-top: 5px;
+      margin-right: 10px;
+    }
+    .download {
+      background: #4285F4;
+      color: white;
+      padding: 8px 15px;
+      text-decoration: none;
+      border-radius: 20px;
+      display: inline-block;
+      margin-top: 5px;
     }
     #meldingenLijst {
       max-height: 500px;
       overflow-y: auto;
+    }
+    .afbeelding {
+      max-width: 100%;
+      max-height: 300px;
+      margin-top: 10px;
+      border: 1px solid #444;
+    }
+    .upload-container {
+      margin: 15px 0;
+    }
+    .progress-bar {
+      width: 100%;
+      background-color: #333;
+      border-radius: 5px;
+      margin-top: 5px;
+    }
+    .progress {
+      height: 10px;
+      background-color: yellow;
+      border-radius: 5px;
+      width: 0%;
     }
   </style>
 </head>
 <body>
   <h1>Live Meldingen Cuijk</h1>
   <input type="text" id="meldingInput" placeholder="Typ hier je melding..." style="width: 100%; padding: 10px;" />
+  
+  <div class="upload-container">
+    <input type="file" id="afbeeldingInput" accept="image/*" style="display: none;" />
+    <button onclick="document.getElementById('afbeeldingInput').click()" style="padding:10px 20px;">Afbeelding selecteren</button>
+    <span id="bestandsnaam" style="margin-left: 10px;"></span>
+    <div class="progress-bar" id="progressContainer" style="display: none;">
+      <div class="progress" id="uploadProgress"></div>
+    </div>
+  </div>
+  
   <button onclick="verzendMelding()" style="margin-top:10px; padding:10px 20px;">Verzend</button>
 
   <div id="meldingenLijst"></div>
@@ -46,6 +87,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+    import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBRYtyAzzzPfJgzcmWKF5XNYvmVD6p-6v0",
@@ -60,27 +102,101 @@
 
     const app = initializeApp(firebaseConfig);
     const database = getDatabase(app);
+    const storage = getStorage(app);
     const meldingenRef = ref(database, "meldingen");
 
-    window.verzendMelding = () => {
+    let geselecteerdeAfbeelding = null;
+    
+    document.getElementById('afbeeldingInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        geselecteerdeAfbeelding = file;
+        document.getElementById('bestandsnaam').textContent = file.name;
+      }
+    });
+
+    window.verzendMelding = async () => {
       const input = document.getElementById("meldingInput");
       const tekst = input.value.trim();
-      if (tekst) {
-        push(meldingenRef, {
-          tekst: tekst,
-          datum: new Date().toLocaleString("nl-NL")
-        });
-        input.value = "";
+      
+      if (!tekst && !geselecteerdeAfbeelding) {
+        alert("Voeg een bericht en/of afbeelding toe");
+        return;
       }
+
+      const progressContainer = document.getElementById('progressContainer');
+      const progressBar = document.getElementById('uploadProgress');
+      
+      let afbeeldingUrl = null;
+      
+      if (geselecteerdeAfbeelding) {
+        progressContainer.style.display = 'block';
+        progressBar.style.width = '0%';
+        
+        try {
+          // Upload afbeelding naar Firebase Storage
+          const storageReference = storageRef(storage, 'meldingen-afbeeldingen/' + Date.now() + '-' + geselecteerdeAfbeelding.name);
+          const uploadTask = uploadBytesResumable(storageReference, geselecteerdeAfbeelding);
+          
+          // Wacht tot upload klaar is
+          await new Promise((resolve, reject) => {
+            uploadTask.on('state_changed',
+              (snapshot) => {
+                // Update progress bar
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                progressBar.style.width = progress + '%';
+              },
+              (error) => {
+                reject(error);
+              },
+              async () => {
+                // Upload voltooid, krijg download URL
+                afbeeldingUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                resolve();
+              }
+            );
+          });
+        } catch (error) {
+          console.error("Fout bij uploaden afbeelding:", error);
+          alert("Er ging iets mis bij het uploaden van de afbeelding");
+          progressContainer.style.display = 'none';
+          return;
+        }
+        
+        progressContainer.style.display = 'none';
+      }
+      
+      // Bericht naar database sturen
+      push(meldingenRef, {
+        tekst: tekst,
+        afbeeldingUrl: afbeeldingUrl || null,
+        datum: new Date().toLocaleString("nl-NL")
+      });
+      
+      // Formulier resetten
+      input.value = "";
+      geselecteerdeAfbeelding = null;
+      document.getElementById('bestandsnaam').textContent = "";
+      document.getElementById('afbeeldingInput').value = "";
     };
 
     onChildAdded(meldingenRef, (data) => {
       const melding = data.val();
       const div = document.createElement("div");
       div.className = "melding";
+      
+      let afbeeldingHtml = "";
+      if (melding.afbeeldingUrl) {
+        afbeeldingHtml = `
+          <img src="${melding.afbeeldingUrl}" class="afbeelding" alt="Melding afbeelding">
+          <a class="download" href="${melding.afbeeldingUrl}" download target="_blank">Download afbeelding</a>
+        `;
+      }
+      
       div.innerHTML = `
-        <p><strong>${melding.datum}</strong><br>${melding.tekst}</p>
-        <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a>
+        <p><strong>${melding.datum}</strong><br>${melding.tekst || '(Geen tekst)'}</p>
+        ${afbeeldingHtml}
+        ${melding.tekst ? <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a> : ''}
       `;
       document.getElementById("meldingenLijst").prepend(div);
     });
