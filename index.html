@@ -208,11 +208,16 @@
 
         const div = document.createElement("div");
         div.className = "melding";
-        div.innerHTML = `
-          <p><strong>${melding.datum}</strong><br>${melding.tekst}</p>
-          <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a>
-          ${huidigeGebruiker && huidigeGebruiker.uid === beheerderUID ? <span class="verwijder" onclick="verwijderMelding('${key}', this)">Verwijder</span> : ''}
-        `;
+       let verwijderKnop = "";
+if (huidigeGebruiker && huidigeGebruiker.uid === beheerderUID) {
+  verwijderKnop = <span class="verwijder" onclick="verwijderMelding('${key}', this)">Verwijder</span>;
+}
+
+div.innerHTML = `
+  <p><strong>${melding.datum}</strong><br>${melding.tekst}</p>
+  <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a>
+  ${verwijderKnop}
+`;
         document.getElementById("meldingenLijst").prepend(div);
       });
     }
