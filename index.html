@@ -3,6 +3,105 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>P2000 Cuijk</title>
+  <style>
+    body {
+      background-color: black;
+      color: yellow;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .melding {
+      border: 1px solid yellow;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+    .whatsapp {
+      background: #25D366;
+      color: white;
+      padding: 8px 15px;
+      text-decoration: none;
+      border-radius: 20px;
+      display: inline-block;
+      margin-top: 5px;
+    }
+    #meldingenLijst {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Live Meldingen Cuijk</h1>
+  <input type="text" id="meldingInput" placeholder="Typ hier je melding..." style="width: 100%; padding: 10px;" />
+  <button onclick="verzendMelding()" style="margin-top:10px; padding:10px 20px;">Verzend</button>
+
+  <div id="meldingenLijst"></div>
+
+  <!-- Firebase scripts -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBRYtyAzzzPfJgzcmWKF5XNYvmVD6p-6v0",
+      authDomain: "lvc-meldkamer.firebaseapp.com",
+      databaseURL: "https://lvc-meldkamer-default-rtdb.firebaseio.com",
+      projectId: "lvc-meldkamer",
+      storageBucket: "lvc-meldkamer.appspot.com",
+      messagingSenderId: "701671349145",
+      appId: "1:701671349145:web:ec9fda66dd686585a81108",
+      measurementId: "G-7YW1ZHSJEK"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+    const meldingenRef = ref(database, "meldingen");
+
+    window.verzendMelding = () => {
+      const input = document.getElementById("meldingInput");
+      const tekst = input.value.trim();
+      if (tekst) {
+        push(meldingenRef, {
+          tekst: tekst,
+          datum: new Date().toLocaleString("nl-NL")
+        });
+        input.value = "";
+      }
+    };
+
+    onChildAdded(meldingenRef, (data) => {
+      const melding = data.val();
+      const div = document.createElement("div");
+      div.className = "melding";
+      div.innerHTML = `
+        <p><strong>${melding.datum}</strong><br>${melding.tekst}</p>
+        <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a>
+      `;
+      document.getElementById("meldingenLijst").prepend(div);
+    });
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>P2000 Cuijk - Beheer</title>
   <style>
     body {
