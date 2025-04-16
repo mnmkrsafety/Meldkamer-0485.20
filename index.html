@@ -20,47 +20,54 @@
       margin: 10px 0;
       border-radius: 5px;
     }
+    .whatsapp, .verwijder {
+      margin-top: 5px;
+      display: inline-block;
+      padding: 8px 15px;
+      border-radius: 20px;
+      text-decoration: none;
+    }
     .whatsapp {
       background: #25D366;
       color: white;
-      padding: 8px 15px;
-      text-decoration: none;
-      border-radius: 20px;
-      display: inline-block;
-      margin-top: 5px;
     }
-    #meldingenLijst {
-      max-height: 500px;
-      overflow-y: auto;
+    .verwijder {
+      background: red;
+      color: white;
+      margin-left: 10px;
+      cursor: pointer;
     }
-    #adminLogin {
+    .admin {
       margin-bottom: 20px;
+    }
+    input, button {
       padding: 10px;
-      border: 1px solid yellow;
-      border-radius: 5px;
+      margin-top: 5px;
+      width: 100%;
+      box-sizing: border-box;
     }
   </style>
 </head>
 <body>
+
   <h1>Live Meldingen Cuijk</h1>
 
-  <div id="adminLogin">
-    <input type="email" id="adminEmail" placeholder="Beheerder e-mail" style="width: 40%;" />
-    <input type="password" id="adminWachtwoord" placeholder="Wachtwoord" style="width: 40%;" />
-    <button onclick="loginBeheerder()">Login</button>
-    <span id="loginStatus"></span>
+  <div class="admin">
+    <input type="email" id="email" placeholder="Beheerder e-mail">
+    <input type="password" id="password" placeholder="Wachtwoord">
+    <button onclick="login()">Inloggen als beheerder</button>
+    <button onclick="logout()">Uitloggen</button>
   </div>
 
-  <input type="text" id="meldingInput" placeholder="Typ hier je melding..." style="width: 100%; padding: 10px;" />
-  <button onclick="verzendMelding()" style="margin-top:10px; padding:10px 20px;">Verzend</button>
+  <input type="text" id="meldingInput" placeholder="Typ hier je melding..." />
+  <button onclick="verzendMelding()">Verzend</button>
 
   <div id="meldingenLijst"></div>
 
-  <!-- Firebase scripts -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded, remove } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBRYtyAzzzPfJgzcmWKF5XNYvmVD6p-6v0",
@@ -69,86 +76,71 @@
       projectId: "lvc-meldkamer",
       storageBucket: "lvc-meldkamer.appspot.com",
       messagingSenderId: "701671349145",
-      appId: "1:701671349145:web:ec9fda66dd686585a81108",
-      measurementId: "G-7YW1ZHSJEK"
+      appId: "1:701671349145:web:ec9fda66dd686585a81108"
     };
 
     const app = initializeApp(firebaseConfig);
     const database = getDatabase(app);
-    const meldingenRef = ref(database, "meldingen");
     const auth = getAuth(app);
+    const meldingenRef = ref(database, "meldingen");
 
-    let isBeheerder = false;
-    const ADMIN_UID = 'JOUW_ADMIN_UID_HIER'; // <- vervang met jouw echte UID!
+    let huidigeGebruiker = null;
 
-    // Login-functie
-    window.loginBeheerder = () => {
-      const email = document.getElementById("adminEmail").value;
-      const wachtwoord = document.getElementById("adminWachtwoord").value;
-
-      signInWithEmailAndPassword(auth, email, wachtwoord)
+    window.login = () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      signInWithEmailAndPassword(auth, email, password)
         .then((userCredential) => {
-          const user = userCredential.user;
-          if (user.uid === ADMIN_UID) {
-            isBeheerder = true;
-            document.getElementById("loginStatus").innerText = " (Ingelogd als beheerder)";
-            toonAlleMeldingen(); // opnieuw laden met verwijderknoppen
-          } else {
-            alert("Je bent niet gemachtigd als beheerder.");
-          }
+          alert("Ingelogd!");
         })
         .catch((error) => {
-          alert("Login mislukt: " + error.message);
+          alert("Fout bij inloggen: " + error.message);
         });
     };
 
-    // Melding verzenden
+    window.logout = () => {
+      signOut(auth).then(() => {
+        alert("Uitgelogd!");
+      });
+    };
+
+    onAuthStateChanged(auth, (user) => {
+      huidigeGebruiker = user;
+    });
+
     window.verzendMelding = () => {
       const input = document.getElementById("meldingInput");
       const tekst = input.value.trim();
       if (tekst) {
         push(meldingenRef, {
           tekst: tekst,
-          datum: new Date().toLocaleString("nl-NL")
+          datum: new Date().toLocaleString("nl-NL"),
+          gebruiker: huidigeGebruiker ? huidigeGebruiker.uid : null
         });
         input.value = "";
       }
     };
 
-    // Verwijderen
-    window.verwijderMelding = (key) => {
-      if (isBeheerder) {
-        const meldingRef = ref(database, meldingen/${key});
-        remove(meldingRef);
-      } else {
-        alert("Je hebt geen rechten om te verwijderen.");
+    onChildAdded(meldingenRef, (data) => {
+      const melding = data.val();
+      const key = data.key;
+
+      const div = document.createElement("div");
+      div.className = "melding";
+      div.innerHTML = `
+        <p><strong>${melding.datum}</strong><br>${melding.tekst}</p>
+        <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a>
+        ${huidigeGebruiker ? <span class="verwijder" onclick="verwijderMelding('${key}', this)">Verwijder</span> : ''}
+      `;
+      document.getElementById("meldingenLijst").prepend(div);
+    });
+
+    window.verwijderMelding = (key, knop) => {
+      if (confirm("Weet je zeker dat je deze melding wilt verwijderen?")) {
+        remove(ref(database, "meldingen/" + key));
+        knop.closest(".melding").remove();
       }
     };
-
-    // Meldingen tonen
-    function toonAlleMeldingen() {
-      document.getElementById("meldingenLijst").innerHTML = "";
-      onChildAdded(meldingenRef, (data) => {
-        const melding = data.val();
-        const div = document.createElement("div");
-        div.className = "melding";
-        div.innerHTML = `
-          <p><strong>${melding.datum}</strong><br>${melding.tekst}</p>
-          <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a>
-          ${isBeheerder ? <br><button onclick="verwijderMelding('${data.key}')">Verwijder</button> : ""}
-        `;
-        document.getElementById("meldingenLijst").prepend(div);
-      });
-    }
-
-    // Automatisch checken of ingelogd
-    onAuthStateChanged(auth, (user) => {
-      if (user && user.uid === ADMIN_UID) {
-        isBeheerder = true;
-        document.getElementById("loginStatus").innerText = " (Ingelogd als beheerder)";
-      }
-      toonAlleMeldingen();
-    });
   </script>
 </body>
 </html>
