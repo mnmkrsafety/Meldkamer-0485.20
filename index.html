@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>P2000 Cuijk</title>
+  <title>P2000 Cuijk + Chat</title>
   <style>
     body {
       background-color: black;
@@ -11,89 +11,85 @@
       font-family: 'Courier New', Courier, monospace;
       padding: 20px;
     }
-    h1 {
-      text-align: center;
-    }
-    .melding {
+    .melding, .chatbericht {
       border: 1px solid yellow;
       padding: 10px;
       margin: 10px 0;
       border-radius: 5px;
     }
-    .whatsapp {
-      background: #25D366;
-      color: white;
-      padding: 8px 15px;
-      text-decoration: none;
-      border-radius: 20px;
-      display: inline-block;
-      margin-top: 5px;
-    }
-    #meldingenLijst {
-      max-height: 500px;
-      overflow-y: auto;
+    input, button {
+      padding: 10px;
+      width: 100%;
+      margin: 5px 0;
     }
   </style>
 </head>
 <body>
   <h1>Live Meldingen Cuijk</h1>
-  <input type="text" id="meldingInput" placeholder="Typ hier je melding..." style="width: 100%; padding: 10px;" />
-  <button onclick="verzendMelding()" style="margin-top:10px; padding:10px 20px;">Verzend</button>
+  <input type="text" id="meldingInput" placeholder="Typ een melding...">
+  <button onclick="verzendMelding()">Verzend melding</button>
+  <div id="meldingen"></div>
 
-  <div id="meldingenLijst"></div>
+  <h2>Live Chat (Anoniem)</h2>
+  <input type="text" id="chatInput" placeholder="Typ een bericht...">
+  <button onclick="verzendChat()">Verzend chat</button>
+  <div id="chat"></div>
 
-  <!-- Firebase scripts -->
   <script type="module">
+    // Firebase setup
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyBRYtyAzzzPfJgzcmWKF5XNYvmVD6p-6v0",
-      authDomain: "lvc-meldkamer.firebaseapp.com",
-      databaseURL: "https://lvc-meldkamer-default-rtdb.firebaseio.com",
-      projectId: "lvc-meldkamer",
-      storageBucket: "lvc-meldkamer.appspot.com",
-      messagingSenderId: "701671349145",
-      appId: "1:701671349145:web:ec9fda66dd686585a81108",
-      measurementId: "G-7YW1ZHSJEK"
+      apiKey: "JOUW_API_KEY_HIER",
+      authDomain: "JOUW_PROJECT.firebaseapp.com",
+      databaseURL: "https://JOUW_PROJECT.firebaseio.com",
+      projectId: "JOUW_PROJECT",
+      storageBucket: "JOUW_PROJECT.appspot.com",
+      messagingSenderId: "JOUW_ID",
+      appId: "JOUW_APP_ID"
     };
 
     const app = initializeApp(firebaseConfig);
-    const database = getDatabase(app);
-    const meldingenRef = ref(database, "meldingen");
+    const db = getDatabase(app);
 
+    // Meldingen
+    const meldingenRef = ref(db, 'meldingen');
     window.verzendMelding = () => {
       const input = document.getElementById("meldingInput");
-      const tekst = input.value.trim();
-      if (tekst) {
+      if (input.value.trim() !== "") {
         push(meldingenRef, {
-          tekst: tekst,
+          tekst: input.value,
           datum: new Date().toLocaleString("nl-NL")
         });
         input.value = "";
       }
     };
-
     onChildAdded(meldingenRef, (data) => {
-      const melding = data.val();
-      const div = document.createElement("div");
-      div.className = "melding";
-      div.innerHTML = `
-        <p><strong>${melding.datum}</strong><br>${melding.tekst}</p>
-        <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a>
-      `;
-      document.getElementById("meldingenLijst").prepend(div);
+      const el = document.createElement("div");
+      el.className = "melding";
+      el.innerHTML = <strong>${data.val().datum}</strong><br>${data.val().tekst};
+      document.getElementById("meldingen").prepend(el);
+    });
+
+    // Chat
+    const chatRef = ref(db, 'chat');
+    window.verzendChat = () => {
+      const input = document.getElementById("chatInput");
+      if (input.value.trim() !== "") {
+        push(chatRef, {
+          tekst: input.value,
+          tijd: new Date().toLocaleTimeString("nl-NL")
+        });
+        input.value = "";
+      }
+    };
+    onChildAdded(chatRef, (data) => {
+      const el = document.createElement("div");
+      el.className = "chatbericht";
+      el.innerHTML = <em>${data.val().tijd}</em>: ${data.val().tekst};
+      document.getElementById("chat").prepend(el);
     });
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
