@@ -29,6 +29,10 @@
       display: inline-block;
       margin-top: 5px;
     }
+    #meldingenLijst {
+      max-height: 500px;
+      overflow-y: auto;
+    }
   </style>
 </head>
 <body>
@@ -40,31 +44,24 @@
 
   <!-- Firebase scripts -->
   <script type="module">
-    // Firebase importeren
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
     const firebaseConfig = {
-  apiKey: "AIzaSyBRYtyAzzzPfJgzcmWKF5XNYvmVD6p-6v0",
-  authDomain: "lvc-meldkamer.firebaseapp.com",
-  databaseURL: "https://lvc-meldkamer-default-rtdb.firebaseio.com",
-  projectId: "lvc-meldkamer",
-  storageBucket: "lvc-meldkamer.firebasestorage.app",
-  messagingSenderId: "701671349145",
-  appId: "1:701671349145:web:ec9fda66dd686585a81108",
-  measurementId: "G-7YW1ZHSJEK"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+      apiKey: "AIzaSyBRYtyAzzzPfJgzcmWKF5XNYvmVD6p-6v0",
+      authDomain: "lvc-meldkamer.firebaseapp.com",
+      databaseURL: "https://lvc-meldkamer-default-rtdb.firebaseio.com",
+      projectId: "lvc-meldkamer",
+      storageBucket: "lvc-meldkamer.appspot.com",
+      messagingSenderId: "701671349145",
+      appId: "1:701671349145:web:ec9fda66dd686585a81108",
+      measurementId: "G-7YW1ZHSJEK"
     };
 
     const app = initializeApp(firebaseConfig);
     const database = getDatabase(app);
     const meldingenRef = ref(database, "meldingen");
 
-    // Melding verzenden
     window.verzendMelding = () => {
       const input = document.getElementById("meldingInput");
       const tekst = input.value.trim();
@@ -77,7 +74,6 @@ const analytics = getAnalytics(app);
       }
     };
 
-    // Melding realtime tonen
     onChildAdded(meldingenRef, (data) => {
       const melding = data.val();
       const div = document.createElement("div");
