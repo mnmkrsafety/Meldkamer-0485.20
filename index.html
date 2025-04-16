@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>P2000 Cuijk</title>
+  <title>P2000 Cuijk - Beheer</title>
   <style>
     body {
       background-color: black;
@@ -20,32 +20,51 @@
       margin: 10px 0;
       border-radius: 5px;
     }
+    .whatsapp, .verwijder {
+      display: inline-block;
+      margin-top: 5px;
+      padding: 8px 15px;
+      border-radius: 20px;
+      text-decoration: none;
+    }
     .whatsapp {
       background: #25D366;
       color: white;
-      padding: 8px 15px;
-      text-decoration: none;
-      border-radius: 20px;
-      display: inline-block;
-      margin-top: 5px;
     }
-    #meldingenLijst {
-      max-height: 500px;
-      overflow-y: auto;
+    .verwijder {
+      background: red;
+      color: white;
+      margin-left: 10px;
+      cursor: pointer;
+    }
+    .admin {
+      margin-bottom: 20px;
+    }
+    input, button {
+      padding: 10px;
+      margin-top: 5px;
+      width: 100%;
+      box-sizing: border-box;
     }
   </style>
 </head>
 <body>
-  <h1>Live Meldingen Cuijk</h1>
-  <input type="text" id="meldingInput" placeholder="Typ hier je melding..." style="width: 100%; padding: 10px;" />
-  <button onclick="verzendMelding()" style="margin-top:10px; padding:10px 20px;">Verzend</button>
+
+  <h1>Beheerder Meldingen Cuijk</h1>
+
+  <div class="admin">
+    <input type="email" id="email" placeholder="Beheerder e-mail">
+    <input type="password" id="password" placeholder="Wachtwoord">
+    <button onclick="login()">Inloggen</button>
+    <button onclick="logout()">Uitloggen</button>
+  </div>
 
   <div id="meldingenLijst"></div>
 
-  <!-- Firebase scripts -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+    import { getDatabase, ref, onChildAdded, remove } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBRYtyAzzzPfJgzcmWKF5XNYvmVD6p-6v0",
@@ -54,36 +73,57 @@
       projectId: "lvc-meldkamer",
       storageBucket: "lvc-meldkamer.appspot.com",
       messagingSenderId: "701671349145",
-      appId: "1:701671349145:web:ec9fda66dd686585a81108",
-      measurementId: "G-7YW1ZHSJEK"
+      appId: "1:701671349145:web:ec9fda66dd686585a81108"
     };
 
     const app = initializeApp(firebaseConfig);
     const database = getDatabase(app);
+    const auth = getAuth(app);
     const meldingenRef = ref(database, "meldingen");
 
-    window.verzendMelding = () => {
-      const input = document.getElementById("meldingInput");
-      const tekst = input.value.trim();
-      if (tekst) {
-        push(meldingenRef, {
-          tekst: tekst,
-          datum: new Date().toLocaleString("nl-NL")
-        });
-        input.value = "";
-      }
+    let huidigeGebruiker = null;
+    let beheerderUID = 'zuXNVohuAdf0J25BnQVieyMZWpx2';
+
+    window.login = () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      signInWithEmailAndPassword(auth, email, password)
+        .then(() => alert("Ingelogd!"))
+        .catch(error => alert("Fout bij inloggen: " + error.message));
     };
 
-    onChildAdded(meldingenRef, (data) => {
-      const melding = data.val();
-      const div = document.createElement("div");
-      div.className = "melding";
-      div.innerHTML = `
-        <p><strong>${melding.datum}</strong><br>${melding.tekst}</p>
-        <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a>
-      `;
-      document.getElementById("meldingenLijst").prepend(div);
+    window.logout = () => {
+      signOut(auth).then(() => alert("Uitgelogd!"));
+    };
+
+    onAuthStateChanged(auth, (user) => {
+      huidigeGebruiker = user;
+      document.getElementById("meldingenLijst").innerHTML = ""; // reset
+      laadMeldingen();
     });
+
+    function laadMeldingen() {
+      onChildAdded(meldingenRef, (data) => {
+        const melding = data.val();
+        const key = data.key;
+
+        const div = document.createElement("div");
+        div.className = "melding";
+        div.innerHTML = `
+          <p><strong>${melding.datum}</strong><br>${melding.tekst}</p>
+          <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a>
+          ${huidigeGebruiker && huidigeGebruiker.uid === beheerderUID ? <span class="verwijder" onclick="verwijderMelding('${key}', this)">Verwijder</span> : ''}
+        `;
+        document.getElementById("meldingenLijst").prepend(div);
+      });
+    }
+
+    window.verwijderMelding = (key, knop) => {
+      if (confirm("Weet je zeker dat je deze melding wilt verwijderen?")) {
+        remove(ref(database, "meldingen/" + key));
+        knop.closest(".melding").remove();
+      }
+    };
   </script>
 </body>
 </html>
