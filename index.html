@@ -64,10 +64,18 @@
       border-radius: 5px;
       width: 0%;
     }
+    .error {
+      color: red;
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid red;
+    }
   </style>
 </head>
 <body>
   <h1>Live Meldingen Cuijk</h1>
+  <div id="errorContainer" class="error" style="display: none;"></div>
+  
   <input type="text" id="meldingInput" placeholder="Typ hier je melding..." style="width: 100%; padding: 10px;" />
   
   <div class="upload-container">
@@ -85,121 +93,161 @@
 
   <!-- Firebase scripts -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
-    import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
+    // Eerst controleren of Firebase modules correct laden
+    try {
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+      import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+      import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBRYtyAzzzPfJgzcmWKF5XNYvmVD6p-6v0",
-      authDomain: "lvc-meldkamer.firebaseapp.com",
-      databaseURL: "https://lvc-meldkamer-default-rtdb.firebaseio.com",
-      projectId: "lvc-meldkamer",
-      storageBucket: "lvc-meldkamer.appspot.com",
-      messagingSenderId: "701671349145",
-      appId: "1:701671349145:web:ec9fda66dd686585a81108",
-      measurementId: "G-7YW1ZHSJEK"
-    };
+      const firebaseConfig = {
+        apiKey: "AIzaSyBRYtyAzzzPfJgzcmWKF5XNYvmVD6p-6v0",
+        authDomain: "lvc-meldkamer.firebaseapp.com",
+        databaseURL: "https://lvc-meldkamer-default-rtdb.firebaseio.com",
+        projectId: "lvc-meldkamer",
+        storageBucket: "lvc-meldkamer.appspot.com",
+        messagingSenderId: "701671349145",
+        appId: "1:701671349145:web:ec9fda66dd686585a81108",
+        measurementId: "G-7YW1ZHSJEK"
+      };
 
-    const app = initializeApp(firebaseConfig);
-    const database = getDatabase(app);
-    const storage = getStorage(app);
-    const meldingenRef = ref(database, "meldingen");
-
-    let geselecteerdeAfbeelding = null;
-    
-    document.getElementById('afbeeldingInput').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        geselecteerdeAfbeelding = file;
-        document.getElementById('bestandsnaam').textContent = file.name;
-      }
-    });
-
-    window.verzendMelding = async () => {
-      const input = document.getElementById("meldingInput");
-      const tekst = input.value.trim();
-      
-      if (!tekst && !geselecteerdeAfbeelding) {
-        alert("Voeg een bericht en/of afbeelding toe");
-        return;
+      // Initialisatie met error handling
+      let app, database, storage;
+      try {
+        app = initializeApp(firebaseConfig);
+        database = getDatabase(app);
+        storage = getStorage(app);
+        console.log("Firebase succesvol geïnitialiseerd");
+      } catch (initError) {
+        showError("Firebase initialisatie mislukt: " + initError.message);
+        throw initError;
       }
 
-      const progressContainer = document.getElementById('progressContainer');
-      const progressBar = document.getElementById('uploadProgress');
+      const meldingenRef = ref(database, "meldingen");
+      let geselecteerdeAfbeelding = null;
       
-      let afbeeldingUrl = null;
+      // Error display functie
+      function showError(message) {
+        const errorContainer = document.getElementById('errorContainer');
+        errorContainer.textContent = message;
+        errorContainer.style.display = 'block';
+        setTimeout(() => errorContainer.style.display = 'none', 5000);
+      }
       
-      if (geselecteerdeAfbeelding) {
-        progressContainer.style.display = 'block';
-        progressBar.style.width = '0%';
-        
+      document.getElementById('afbeeldingInput').addEventListener('change', (e) => {
         try {
-          // Upload afbeelding naar Firebase Storage
-          const storageReference = storageRef(storage, 'meldingen-afbeeldingen/' + Date.now() + '-' + geselecteerdeAfbeelding.name);
-          const uploadTask = uploadBytesResumable(storageReference, geselecteerdeAfbeelding);
-          
-          // Wacht tot upload klaar is
-          await new Promise((resolve, reject) => {
-            uploadTask.on('state_changed',
-              (snapshot) => {
-                // Update progress bar
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                progressBar.style.width = progress + '%';
-              },
-              (error) => {
-                reject(error);
-              },
-              async () => {
-                // Upload voltooid, krijg download URL
-                afbeeldingUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                resolve();
-              }
-            );
-          });
+          const file = e.target.files[0];
+          if (file) {
+            if (file.size > 5 * 1024 * 1024) { // 5MB limiet
+              showError("Afbeelding is te groot (max 5MB)");
+              e.target.value = "";
+              return;
+            }
+            geselecteerdeAfbeelding = file;
+            document.getElementById('bestandsnaam').textContent = file.name;
+          }
         } catch (error) {
-          console.error("Fout bij uploaden afbeelding:", error);
-          alert("Er ging iets mis bij het uploaden van de afbeelding");
-          progressContainer.style.display = 'none';
-          return;
+          showError("Fout bij selecteren afbeelding: " + error.message);
         }
-        
-        progressContainer.style.display = 'none';
-      }
-      
-      // Bericht naar database sturen
-      push(meldingenRef, {
-        tekst: tekst,
-        afbeeldingUrl: afbeeldingUrl || null,
-        datum: new Date().toLocaleString("nl-NL")
       });
-      
-      // Formulier resetten
-      input.value = "";
-      geselecteerdeAfbeelding = null;
-      document.getElementById('bestandsnaam').textContent = "";
-      document.getElementById('afbeeldingInput').value = "";
-    };
 
-    onChildAdded(meldingenRef, (data) => {
-      const melding = data.val();
-      const div = document.createElement("div");
-      div.className = "melding";
-      
-      let afbeeldingHtml = "";
-      if (melding.afbeeldingUrl) {
-        afbeeldingHtml = `
-          <img src="${melding.afbeeldingUrl}" class="afbeelding" alt="Melding afbeelding">
-          <a class="download" href="${melding.afbeeldingUrl}" download target="_blank">Download afbeelding</a>
-        `;
-      }
-      
-      div.innerHTML = `
-        <p><strong>${melding.datum}</strong><br>${melding.tekst || '(Geen tekst)'}</p>
-        ${afbeeldingHtml}
-        ${melding.tekst ? <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a> : ''}
-      `;
-      document.getElementById("meldingenLijst").prepend(div);
-    });
+      window.verzendMelding = async () => {
+        try {
+          const input = document.getElementById("meldingInput");
+          const tekst = input.value.trim();
+          
+          if (!tekst && !geselecteerdeAfbeelding) {
+            showError("Voeg een bericht en/of afbeelding toe");
+            return;
+          }
+
+          const progressContainer = document.getElementById('progressContainer');
+          const progressBar = document.getElementById('uploadProgress');
+          
+          let afbeeldingUrl = null;
+          
+          if (geselecteerdeAfbeelding) {
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            
+            try {
+              // Upload afbeelding naar Firebase Storage
+              const storageReference = storageRef(storage, 'meldingen-afbeeldingen/' + Date.now() + '-' + geselecteerdeAfbeelding.name.replace(/\s+/g, '_'));
+              const uploadTask = uploadBytesResumable(storageReference, geselecteerdeAfbeelding);
+              
+              await new Promise((resolve, reject) => {
+                uploadTask.on('state_changed',
+                  (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    progressBar.style.width = progress + '%';
+                  },
+                  (error) => {
+                    progressContainer.style.display = 'none';
+                    reject(error);
+                  },
+                  async () => {
+                    afbeeldingUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                    resolve();
+                  }
+                );
+              });
+            } catch (uploadError) {
+              showError("Upload mislukt: " + uploadError.message);
+              progressContainer.style.display = 'none';
+              return;
+            }
+            
+            progressContainer.style.display = 'none';
+          }
+          
+          // Bericht naar database sturen
+          await push(meldingenRef, {
+            tekst: tekst,
+            afbeeldingUrl: afbeeldingUrl || null,
+            datum: new Date().toLocaleString("nl-NL")
+          });
+          
+          // Formulier resetten
+          input.value = "";
+          geselecteerdeAfbeelding = null;
+          document.getElementById('bestandsnaam').textContent = "";
+          document.getElementById('afbeeldingInput').value = "";
+          
+        } catch (mainError) {
+          showError("Er ging iets mis: " + mainError.message);
+          console.error("Fout in verzendMelding:", mainError);
+        }
+      };
+
+      onChildAdded(meldingenRef, (data) => {
+        try {
+          const melding = data.val();
+          const div = document.createElement("div");
+          div.className = "melding";
+          
+          let afbeeldingHtml = "";
+          if (melding.afbeeldingUrl) {
+            afbeeldingHtml = `
+              <img src="${melding.afbeeldingUrl}" class="afbeelding" alt="Melding afbeelding">
+              <a class="download" href="${melding.afbeeldingUrl}" download target="_blank">Download afbeelding</a>
+            `;
+          }
+          
+          div.innerHTML = `
+            <p><strong>${melding.datum}</strong><br>${melding.tekst || '(Geen tekst)'}</p>
+            ${afbeeldingHtml}
+            ${melding.tekst ? `<a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a>` : ''}
+          `;
+          document.getElementById("meldingenLijst").prepend(div);
+        } catch (renderError) {
+          showError("Fout bij tonen melding: " + renderError.message);
+        }
+      });
+
+    } catch (moduleError) {
+      document.getElementById('errorContainer').textContent = "Critical error: " + moduleError.message;
+      document.getElementById('errorContainer').style.display = 'block';
+      console.error("Module load error:", moduleError);
+    }
   </script>
 </body>
 </html>
