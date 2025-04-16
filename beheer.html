@@ -81,8 +81,8 @@
     const auth = getAuth(app);
     const meldingenRef = ref(database, "meldingen");
 
+    let beheerderUID = 'zuXNVohuAdf0J25BnQVieyMZWpx2';
     let huidigeGebruiker = null;
-    let beheerderUID = 'zuXNVohuAdf0J25BnQVieyMZWpx2'; 
 
     window.login = () => {
       const email = document.getElementById("email").value;
@@ -98,7 +98,7 @@
 
     onAuthStateChanged(auth, (user) => {
       huidigeGebruiker = user;
-      document.getElementById("meldingenLijst").innerHTML = ""; 
+      document.getElementById("meldingenLijst").innerHTML = "";
       laadMeldingen();
     });
 
@@ -107,14 +107,13 @@
         const melding = data.val();
         const key = data.key;
 
-        const div = document.createElement("div");
-        div.className = "melding";
-
         let verwijderKnop = "";
         if (huidigeGebruiker && huidigeGebruiker.uid === beheerderUID) {
           verwijderKnop = <span class="verwijder" onclick="verwijderMelding('${key}', this)">Verwijder</span>;
         }
 
+        const div = document.createElement("div");
+        div.className = "melding";
         div.innerHTML = `
           <p><strong>${melding.datum}</strong><br>${melding.tekst}</p>
           <a class="whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent(melding.tekst)}" target="_blank">Deel via WhatsApp</a>
